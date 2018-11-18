@@ -26,7 +26,8 @@ int main(void) {
   // so that the proper response can be diosplayed by the application to the user
   //--------------------------------------------
     int userChoice;
-  
+    system("./Server.o");
+    int Client(int operationType, int operationSubtype, char* userInput);
 
   for (;;) {
      // application requires main menu and sub menus to capture input correctly after each user interaction
@@ -44,9 +45,16 @@ int main(void) {
       if(userChoice == 1){
           system("@cls||clear");
           printf("Choose a time format (Enter a number):\n");
-          printf("1: GMT\n 2: Local\n");
+          printf("1: GMT\n2: Local\n");
           scanf("%d", &userChoice);
-          
+          if(userChoice == 1){
+              Client(1, 1, ".");
+          }
+          else if(userChoice == 2){
+              Client(1, 2, ".");
+          } else {
+              printf("Choose 1 or 2");
+          }
           
       }
      // 2. Request a Quote of the Day to brighten their day

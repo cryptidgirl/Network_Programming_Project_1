@@ -14,85 +14,130 @@
 
 void DieWithError(char *errorMessage);  /* Error handling function */
 
-int Application(int operationType, char *argv[])
+int Client(int operationType, int operationSubtype, char* userInput)
 {
     int sock_Descr;                  /* Socket descriptor */
     struct sockaddr_in echoServAddr; /* Echo server address */
-    unsigned short echoServPort;     /* Echo server port */
+    unsigned short servPort;     /* Echo server port */
     char *servIP;                    /* Server IP address (dotted quad) */
     char *echoString;                /* String to send to echo server */
     char echoBuffer[RCVBUFSIZE];     /* Buffer for echo string */
     unsigned int echoStringLen;      /* Length of string to echo */
     int bytesRcvd, totalBytesRcvd;   /* Bytes read in single recv() 
                                         and total bytes read */
+    char *timeRequest;
+    unsigned int requestLength;
 
-    if(operationType == 1) {
+    if(operationType == 1) { // Sets up a UDP socket instead of TCP for fetching server time
         
-    }
-    /* ------Step 0 check user input ------ */
-    /* Test for correct number of arguments */
-    if ((argc < 3) || (argc > 4))    /* Test for correct number of arguments */
-    {
-       fprintf(stderr, "Usage: %s <Server IP> <Echo Word> [<Echo Port>]\n",
-               argv[0]);
-       exit(1);
-    }
-
-    servIP = argv[1];             /* First arg: server IP address (dotted quad) */
-    echoString = argv[2];         /* Second arg: string to echo */
-
-    if (argc == 4)
-        echoServPort = atoi(argv[3]); /* Use given port, if any */
-    else
-        echoServPort = 7;  /* 7 is the well-known port for the echo service */
-
-    /* ------Step 1 create socket --------------- */
-    /* Create a reliable, stream socket using TCP */
-    if ((sock_Descr = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
-        DieWithError("socket() failed");
-
-    /* Construct the server address structure */
-    memset(&echoServAddr, 0, sizeof(echoServAddr));     /* Zero out structure */
-    echoServAddr.sin_family      = AF_INET;             /* Internet address family */
-    echoServAddr.sin_addr.s_addr = inet_addr(servIP);   /* Server IP address */
-    echoServAddr.sin_port        = htons(echoServPort); /* Server port */
-
-    /* ------Step 2 connect to server ------------ */
-    /* Establish the connection to the echo server */
-    if (connect(sock_Descr, (struct sockaddr *) &echoServAddr, sizeof(echoServAddr)) < 0)
-        DieWithError("connect() failed");
-
-    echoStringLen = strlen(echoString);          /* Determine input length */
-
-    /* ------Step 3 send message to server ------- */
-    /* Send the string to the server */
-    if (send(sock_Descr, echoString, echoStringLen, 0) != echoStringLen)
-        DieWithError("send() sent a different number of bytes than expected");
-    else
-        printf("Sent to the Server: [%.*s]\n",echoStringLen, echoString);      /* Print the echo buffer */
+        servIP = "127.0.0.1";
+        servPort = atoi("3000");
         
-    /* ------Step 4 recv message from server ------ */
-    /* Receive the same string back from the server */
-    totalBytesRcvd = 0;
-    printf("Received back from Server: [");                /* Setup to print the echoed string */
-    while (totalBytesRcvd < echoStringLen)
-    {
-        /* Receive up to the buffer size (minus 1 to leave space for
-           a null terminator) bytes from the sender */
-        if ((bytesRcvd = recv(sock_Descr, echoBuffer, RCVBUFSIZE - 1, 0)) <= 0)
-            DieWithError("recv() failed or connection closed prematurely");
-        totalBytesRcvd += bytesRcvd;   /* Keep tally of total bytes */
-        echoBuffer[bytesRcvd] = '\0';  /* Terminate the string! */
-        printf("%s", echoBuffer);      /* Print the echo buffer */
+        if(operationSubtype == 1){
+            timeRequest = "GMT";
+        } else if(operationSubtype == 2){
+            timeRequest = "Local";
+        }
+        
+        /* ------Step 1 create socket --------------- */
+        /* Create a reliable, stream socket using TCP */
+        if ((sock_Descr = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
+            DieWithError("socket() failed");
+        
+        /* Construct the server address structure */
+        memset(&echoServAddr, 0, sizeof(echoServAddr));     /* Zero out structure */
+        echoServAddr.sin_family      = AF_INET;             /* Internet address family */
+        echoServAddr.sin_addr.s_addr = inet_addr(servIP);   /* Server IP address */
+        echoServAddr.sin_port        = htons(servPort); /* Server port */
+        
+        requestLength = sizeof(timeRequest);
+        /* ------Step 3 send message to server ------- */
+        /* Send the time request to the server */
+        ssize_t numBytes = sendto(sock_Descr, timeRequest, requestLength, 0, (struct sockaddr *) &echoServAddr, sizeof(echoServAddr));
+        if (numBytes != requestLength) {
+            DieWithError("sendto() sent a different number of bytes than expected");
+        }
+        else if (numBytes < 0) {
+            DieWithError("sendto() failed");
+        }
+        
+        unsigned int serverLen = sizeof(echoServAddr);
+        /* ------Step 4 recv message from server ------ */
+        /* Receive the time from the server */
+        numBytes = recvfrom(sock_Descr, echoBuffer, strlen(echoBuffer), 0, (struct sockaddr *) &echoServAddr, &serverLen);
+        if(numBytes < 0) {
+            DieWithError("recvfrom() failed");
+        }
+        
+        printf("%s\n", echoBuffer);    /* Print a final linefeed */
+        
+        /* ------Step 5 close connection with server and release resources ------ */
+        close(sock_Descr);
+        #ifdef _WIN32                 /* IF ON A WINDOWS PLATFORM YOU WILL HAVE TO CHECK THIS */
+            WSACleanup()
+        #endif
+            exit(0);
+        }
+    
+    else if(operationType == 2 || operationType == 3) {
+        
+        servIP = "127.0.0.1";             /* First arg: server IP address (dotted quad) */
+        servPort = atoi("3000"); /* Use given port, if any */
+        
+        /* ------Step 1 create socket --------------- */
+        /* Create a reliable, stream socket using TCP */
+        if ((sock_Descr = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+            DieWithError("socket() failed");
+        
+        /* Construct the server address structure */
+        memset(&echoServAddr, 0, sizeof(echoServAddr));     /* Zero out structure */
+        echoServAddr.sin_family      = AF_INET;             /* Internet address family */
+        echoServAddr.sin_addr.s_addr = inet_addr(servIP);   /* Server IP address */
+        echoServAddr.sin_port        = htons(servPort); /* Server port */
+        
+        echoStringLen = strlen(echoString);          /* Determine input length */
+        echoString = "3";
+        
+        /* ------Step 2 connect to server ------------ */
+        /* Establish the connection to the echo server */
+        if (connect(sock_Descr, (struct sockaddr *) &echoServAddr, sizeof(echoServAddr)) < 0)
+            DieWithError("connect() failed");
+        
+        /* ------Step 3 send message to server ------- */
+        /* Send the string to the server */
+        if (send(sock_Descr, echoString, echoStringLen, 0) != echoStringLen)
+            DieWithError("send() sent a different number of bytes than expected");
+        else
+            printf("Sent to the Server: [%.*s]\n",echoStringLen, echoString);      /* Print the echo buffer */
+        
+        
+        
+        /* ------Step 4 recv message from server ------ */
+        /* Receive the same string back from the server */
+        totalBytesRcvd = 0;
+        printf("Received back from Server: [");                /* Setup to print the echoed string */
+        while (totalBytesRcvd < echoStringLen)
+        {
+            /* Receive up to the buffer size (minus 1 to leave space for
+             a null terminator) bytes from the sender */
+            if ((bytesRcvd = recv(sock_Descr, echoBuffer, RCVBUFSIZE - 1, 0)) <= 0)
+                DieWithError("recv() failed or connection closed prematurely");
+            totalBytesRcvd += bytesRcvd;   /* Keep tally of total bytes */
+            echoBuffer[bytesRcvd] = '\0';  /* Terminate the string! */
+            printf("%s", echoBuffer);      /* Print the echo buffer */
+        }
+        
+        printf("]\n");    /* Print a final linefeed */
+        
+        /* ------Step 5 close connection with server and release resources ------ */
+        close(sock_Descr);
+        #ifdef _WIN32                 /* IF ON A WINDOWS PLATFORM YOU WILL HAVE TO CHECK THIS */
+            WSACleanup()
+        #endif
+            exit(0);
     }
-
-    printf("]\n");    /* Print a final linefeed */
-
-    /* ------Step 5 close connection with server and release resources ------ */
-    close(sock_Descr);
-#ifdef _WIN32 				/* IF ON A WINDOWS PLATFORM YOU WILL HAVE TO CHECK THIS */
-    WSACleanup()
-#endif
-    exit(0);
+    
+    return 0;
+    
     
 }

@@ -1,10 +1,10 @@
 CC = gcc
 CFLAGS = -g -Wall -pthread
 INCLUDE1=DieWithError.c CaesarCipher.c Server.c
-INCLUDE2=DieWithError.c Client.c CaesarCipher.c
+INCLUDE2=DieWithError.c HandleClientTCP.c CaesarCipher.c
 INCLUDE3=DieWithError.c Client.c
 
-all: EchoClientTCP EchoServerTCP-Forked-Num CaesarCipher
+all: Client Server Application
 
 Client: Client.c
 	$(CC) $(CFLAGS) $(INCLUDE1) -o $@.o $<

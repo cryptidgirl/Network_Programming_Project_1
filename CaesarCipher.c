@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-char* CaesarCipher(int option, char str[])
+int CaesarCipher(int option, char str[])
 {
    int i;
    switch(option)
